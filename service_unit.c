@@ -13,9 +13,30 @@ void service_unit(float *t, int type)
 {
     if (type == LIST)
         service_unit_list(t);
-    //else
-        //process_array(t);
+    else
+        service_unit_array(t);
 };
+
+
+
+enum
+{
+    NONE,
+    ENQUEUE,
+    PROCESS_END,
+};
+
+void print_info(int i, int q1_e, int q1_d, float q1_a, int q2_e, int q2_d, float q2_a)
+{
+    printf("*********************************\n");
+    printf("q1: processed: %d\n", i);
+    printf("q1: enqueues: %d\n", q1_e);
+    printf("q1: dequeues: %d\n", q1_d);
+    printf("q1: average time in queue: %.2f\n", q1_a);
+    printf("q2: enqueues: %d\n", q2_e);
+    printf("q2: dequeues: %d\n", q2_d);
+    printf("q2: average time in queue: %.2f\n", q2_a);
+}
 
 void service_unit_list(float *t)
 {
@@ -23,106 +44,356 @@ void service_unit_list(float *t)
     queue_l *q1 = create_queue_l();
     queue_l *q2 = create_queue_l();
 
-    float q1_busy_time = 0;
-    float q2_busy_time = 0;
-    application_t *work_q2;
-    int j = 0;
-    int adds_q2 = 0;
-    int proceseed_q2 = 0;
+    float q1_add_time = 0;
+    float q1_process_time = 0;
+    int q1_inserts = 0;
+    int q1_dequeues = 0;
+    int q1_processed = 0;
+    float q1_wait_time = 0;
 
-    float type1_add_time = 0;
-    float type2_add_time = 0;
-    float type1_process_time = 0;
-    float type2_process_time = 0;
+    float q2_add_time = 0;
+    float q2_process_time = 0;
+    int q2_inserts = 0;
+    int q2_added = 0;
+    int q2_dequeues = 0;
+    int q2_processed = 0;
+    float q2_wait_time = 0;
 
-    float q2_begin_add = 0;
+    event_t *events[3] = {NULL};
+    event_t *current_event;
+    int events_size = 0;
 
-    for (int i = 0; i < SIZE; i++)
+    application_t *current = NULL;
+    float current_begin = 0;
+
+    application_t *a = create_application(TYPE_1, t[0], t[1], t[2], t[3], 0);
+    events[events_size] = create_event(a, a->add_time, ENQUEUE);
+    events_size++;
+
+    a = create_application(TYPE_2, t[4], t[5], t[6], t[7], 0);
+    events[events_size] = create_event(a, a->add_time, ENQUEUE);
+    events_size++;
+
+    while(q1_processed < SIZE || q2_processed < SIZE)
     {
-        if (!is_empty_l(q1) && q1_busy_time == 0)
+        sort(events, events_size);
+        current_event = events[0];
+        float current_time = current_event->time;
+        switch(current_event->type)
         {
-            if (q2_busy_time != 0)
+        case ENQUEUE:
+            if (current_event->a->type == TYPE_1)
             {
-                type2_process_time -=  q2_busy_time;
-                enqueue_l(q2, work_q2, &code);
-                work_q2 = NULL;
-                adds_q2++;
-                q2_busy_time = 0;
-            }
-            application_t *t = dequeue_l(q1, &code);
-            q1_busy_time = t->process_time;
-            type1_process_time += t->process_time;
-            destroy_application(t);
-        }
-
-        application_t *a1 = create_application(TYPE_1, t[0], t[1], t[2], t[3]);
-        enqueue_l(q1, a1, &code);
-        type1_add_time += a1->add_time;
-
-
-        float iter_time = q2_begin_add;
-        float q2_begin_process = 0;
-        while (iter_time < a1->add_time && j < SIZE)
-        {
-            application_t *a2 = create_application(TYPE_2, t[4], t[5], t[6], t[7]);
-            if (is_empty_l(q2))
-                q2_begin_process = a2->add_time;
-            enqueue_l(q2, a2, &code);
-            j++;
-            adds_q2++;
-            type2_add_time += a2->add_time;
-            iter_time += a2->add_time;
-        }
-        q2_begin_add = fmod(iter_time, a1->process_time);
-
-        if (a1->add_time >= q1_busy_time + q2_begin_process)
-        {
-            iter_time = a1->add_time - q1_busy_time - q2_begin_process;
-            work_q2 = NULL;
-            while (!is_empty_l(q2) && iter_time < a1->add_time)
-            {
-                if (work_q2)
+                q1_inserts++;
+                q1_add_time += current_event->a->add_time;
+                enqueue_l(q1, current_event->a, &code);
+                destroy_event(current_event);
+                shift(events, events_size);
+                events_size--;
+                if (q1_inserts < SIZE)
                 {
-                    proceseed_q2++;
-                    destroy_application(work_q2);
+                    a = create_application(TYPE_1, t[0], t[1], t[2], t[3], current_time);
+                    events[events_size] = create_event(a, current_time + a->add_time, ENQUEUE);
+                    events_size++;
                 }
-                work_q2 = dequeue_l(q2, &code);
-                q2_busy_time = work_q2->process_time;
-                type2_process_time += work_q2->process_time;
-                iter_time += work_q2->process_time;
+                if (!current || current->type == TYPE_2)
+                {
+                    if (current && current->type == TYPE_2)
+                    {
+                        if (events[0]->a == current)
+                        {
+                            destroy_event(events[0]);
+                            shift(events, events_size);
+                            q2_process_time += current_time - current_begin;
+                        }
+                        else if (events[1]->a == current)
+                        {
+                            destroy_event(events[1]);
+                            events[1] = events[2];
+                        }
+                        events_size--;
+                        q2_added++;
+                        enqueue_l(q2, current, &code);
+                    }
+                    current = dequeue_l(q1, &code);
+                    q1_dequeues++;
+                    q1_wait_time += current_time - current->start_time;
+                    event_t *e = create_event(current, current_time + current->process_time, PROCESS_END);
+                    current_begin = current_time;
+                    events[events_size] = e;
+                    events_size++;
+                }
             }
-            q2_busy_time = iter_time - a1->add_time;
-            if (q2_busy_time < 0 && work_q2)
+            else
             {
-                proceseed_q2++;
-                destroy_application(work_q2);
-                q2_busy_time = 0;
+                q2_inserts++;
+                q2_added++;
+                q2_add_time += current_event->a->add_time;
+                enqueue_l(q2, current_event->a, &code);
+                destroy_event(current_event);
+                shift(events, events_size);
+                events_size--;
+                if (q2_inserts < SIZE)
+                {
+                    a = create_application(TYPE_2, t[4], t[5], t[6], t[7], current_time);
+                    events[events_size] = create_event(a, current_time + a->add_time, ENQUEUE);
+                    events_size++;
+                }
+                if (!current)
+                {
+                    current = dequeue_l(q2, &code);
+                    q2_dequeues++;
+                    q2_wait_time += current_time - current->start_time;
+                    event_t *e = create_event(current, current_time + current->process_time, PROCESS_END);
+                    current_begin = current_time;
+                    events[events_size] = e;
+                    events_size++;
+                }
             }
-            if (!work_q2) q2_busy_time = 0;
-            q1_busy_time = 0;
+            break;
+        case PROCESS_END:
+            if (current->type == TYPE_1)
+            {
+                q1_process_time += current->process_time;
+                q1_processed++;
+                if (q1_processed % 100 == 0)
+                {
+                    print_info(q1_processed, q1_inserts, q1_dequeues, (float)q1_wait_time/q1_dequeues,
+                               q2_inserts, q2_added, (float)q2_wait_time/q2_dequeues);
+                }
+            }
+            else
+            {
+                q2_process_time += current->process_time;
+                q2_processed++;
+            }
+            destroy_application(current);
+            current = NULL;
+            destroy_event(current_event);
+            shift(events, events_size);
+            events_size--;
+            if (!is_empty_l(q1))
+            {
+                current = dequeue_l(q1, &code);
+                q1_dequeues++;
+                q1_wait_time += current_time - current->start_time;
+                event_t *e = create_event(current, current_time + current->process_time, PROCESS_END);
+                current_begin = current_time;
+                events[events_size] = e;
+                events_size++;
+            }
+            else if (!is_empty_l(q2))
+            {
+                current = dequeue_l(q2, &code);
+                q2_dequeues++;
+                q2_wait_time += current_time - current->start_time;
+                event_t *e = create_event(current, current_time + current->process_time, PROCESS_END);
+                current_begin = current_time;
+                events[events_size] = e;
+                events_size++;
+            }
+            break;
         }
-        else
-        {
-            q1_busy_time = a1->add_time - q1_busy_time;
-        }
     }
-    while (!is_empty_l(q1))
-    {
-        application_t *a1 = dequeue_l(q1, &code);
-        type1_process_time += a1->process_time;
-    }
-    while (!is_empty_l(q2))
-    {
-        application_t *a2 = dequeue_l(q2, &code);
-        type2_process_time += a2->process_time;
-    }
+    float tmp;
+    printf("****************Q1***************\n");
+    printf("Expected add time: %.2f\n", SIZE*(t[1]+t[0])/2.0);
+    printf("Result add time: %.2f\n", q1_add_time);
+    printf("Expected modeling time: %.2f\n", SIZE*(t[3]+t[2])/2.0);
+    printf("Result modeling time: %.2f\n", q1_process_time);
+    printf("Idle time: %.2f\n", q1_process_time - q1_add_time);
+    printf("Enqueues: %d\n", q1_inserts);
+    printf("Dequeues: %d\n", q1_dequeues);
+    printf("Input check\n");
+    tmp = q1_add_time / ((t[1]+t[0])/2.0);
+    printf("Number of applications: %.2f\n", tmp);
+    printf("Error: %.2f\n", abs(q1_inserts - tmp)/tmp);
+    printf("Output check\n");
+    tmp = q1_dequeues * ((t[3]+t[2])/2.0);
+    if (q1_wait_time > 0) tmp += q1_wait_time;
+    printf("Expected modeling time: %.2f\n", tmp);
+    printf("Error: %.2f\n", abs(q1_process_time - tmp)/tmp);
+    printf("****************Q2***************\n");
+    printf("Expected add time: %.2f\n", SIZE*(t[5]+t[4])/2.0);
+    printf("Result add time: %.2f\n", q2_add_time);
+    printf("Expected modeling time: %.2f\n", SIZE*(t[7]+t[6])/2.0 + (q2_added-SIZE) * (t[7]+t[6])/4.0);
+    printf("Result modeling time: %.2f\n", q2_process_time);
+    printf("Idle time: %.2f\n", q2_process_time - q2_add_time);
+    printf("Enqueues to: %d\n", q2_added);
+    printf("Dequeues from: %d\n", q2_dequeues);
+    printf("Input check\n");
+    tmp = q2_add_time / ((t[5]+t[4])/2.0);
+    printf("Number of applications: %.2f\n", tmp);
+    printf("Error: %.2f\n", abs(q1_inserts - tmp)/tmp);
+    printf("Output check\n");
+    tmp = q2_dequeues * ((t[6]+t[7])/2.0);
+    if (q2_wait_time > 0) tmp += q2_wait_time;
+    printf("Expected modeling time: %.2f\n", tmp);
+    printf("Error: %.2f\n", abs(q2_process_time - tmp)/tmp);
+    printf("**************TOTAL***************\n");
+    printf("Expected total modeling time: %.2f\n", SIZE*(t[3]+t[2])/2.0 + SIZE*(t[7]+t[6])/2.0 + (q2_added-SIZE) * (t[7]+t[6])/4.0);
+    printf("Result total modeling time: %.2f\n", q1_process_time + q2_process_time);
+    printf("Total idle time: %.2f\n", q1_process_time + q2_process_time - q1_add_time - q2_add_time);
+    printf("Input check\n");
+    tmp = (q1_add_time + q2_add_time) / ( (t[5]+t[4])/4.0 + ((t[1]+t[0])/4.0) );
+    printf("Number of applications: %.2f\n", tmp);
+    printf("Error: %.2f\n", abs(q1_inserts + q2_inserts - tmp)/tmp);
+    printf("Output check\n");
+    tmp = q1_dequeues * ((t[2]+t[3])/2.0) + q2_dequeues * ((t[6]+t[7])/2.0);
+    if (q1_wait_time > 0) tmp += q1_wait_time;
+    if (q2_wait_time > 0) tmp += q2_wait_time;
+    printf("Expected modeling time: %.2f\n", tmp);
+    printf("Error: %.2f\n", abs(q1_process_time + q2_process_time - tmp)/tmp);
+    printf("*********************************\n");
+}
 
+
+void service_unit_array(float *t)
+{
+    int code;
+    queue_a *q1 = create_queue_a();
+    queue_a *q2 = create_queue_a();
+
+    float q1_add_time = 0;
+    float q1_process_time = 0;
+    int q1_inserts = 0;
+    int q1_processed = 0;
+
+    float q2_add_time = 0;
+    float q2_process_time = 0;
+    int q2_inserts = 0;
+    int q2_added = 0;
+    int q2_processed = 0;
+
+    event_t *events[3] = {NULL};
+    event_t *current_event;
+    int events_size = 0;
+
+    application_t *current = NULL;
+    float current_begin = 0;
+
+    application_t *a = create_application(TYPE_1, t[0], t[1], t[2], t[3], 0);
+    events[events_size] = create_event(a, a->add_time, ENQUEUE);
+    events_size++;
+
+    a = create_application(TYPE_2, t[4], t[5], t[6], t[7], 0);
+    events[events_size] = create_event(a, a->add_time, ENQUEUE);
+    events_size++;
+
+    while(q1_processed < SIZE || q2_processed < SIZE)
+    {
+        sort(events, events_size);
+        current_event = events[0];
+        float current_time = current_event->time;
+        switch(current_event->type)
+        {
+        case ENQUEUE:
+            if (current_event->a->type == TYPE_1)
+            {
+                q1_inserts++;
+                q1_add_time += current_event->a->add_time;
+                enqueue_a(q1, current_event->a, &code);
+                destroy_event(current_event);
+                shift(events, events_size);
+                events_size--;
+                if (q1_inserts < SIZE)
+                {
+                    a = create_application(TYPE_1, t[0], t[1], t[2], t[3], current_time);
+                    events[events_size] = create_event(a, current_time + a->add_time, ENQUEUE);
+                    events_size++;
+                }
+                if (!current || current->type == TYPE_2)
+                {
+                    if (current && current->type == TYPE_2)
+                    {
+                        if (events[0]->a == current)
+                        {
+                            destroy_event(events[0]);
+                            shift(events, events_size);
+                            q2_process_time += current_time - current_begin;
+                        }
+                        else if (events[1]->a == current)
+                        {
+                            destroy_event(events[1]);
+                            events[1] = events[2];
+                        }
+                        events_size--;
+                        q2_added++;
+                        enqueue_a(q2, current, &code);
+                    }
+                    current = dequeue_a(q1, &code);
+                    event_t *e = create_event(current, current_time + current->process_time, PROCESS_END);
+                    current_begin = current_time;
+                    events[events_size] = e;
+                    events_size++;
+                }
+            }
+            else
+            {
+                q2_inserts++;
+                q2_added++;
+                q2_add_time += current_event->a->add_time;
+                enqueue_a(q2, current_event->a, &code);
+                destroy_event(current_event);
+                shift(events, events_size);
+                events_size--;
+                if (q2_inserts < SIZE)
+                {
+                    a = create_application(TYPE_2, t[4], t[5], t[6], t[7], current_time);
+                    events[events_size] = create_event(a, current_time + a->add_time, ENQUEUE);
+                    events_size++;
+                }
+                if (!current)
+                {
+                    current = dequeue_a(q2, &code);
+                    event_t *e = create_event(current, current_time + current->process_time, PROCESS_END);
+                    current_begin = current_time;
+                    events[events_size] = e;
+                    events_size++;
+                }
+            }
+            break;
+        case PROCESS_END:
+            if (current->type == TYPE_1)
+            {
+                q1_process_time += current->process_time;
+                q1_processed++;
+            }
+            else
+            {
+                q2_process_time += current->process_time;
+                q2_processed++;
+            }
+            destroy_application(current);
+            current = NULL;
+            destroy_event(current_event);
+            shift(events, events_size);
+            events_size--;
+            if (!is_empty_a(q1))
+            {
+                current = dequeue_a(q1, &code);
+                event_t *e = create_event(current, current_time + current->process_time, PROCESS_END);
+                current_begin = current_time;
+                events[events_size] = e;
+                events_size++;
+            }
+            else if (!is_empty_a(q2))
+            {
+                current = dequeue_a(q2, &code);
+                event_t *e = create_event(current, current_time + current->process_time, PROCESS_END);
+                current_begin = current_time;
+                events[events_size] = e;
+                events_size++;
+            }
+            break;
+        }
+    }
     printf("Expected q1 add time: %.2f\n", SIZE*(t[1]+t[0])/2.0);
-    printf("Result q1 add time: %.2f\n", type1_add_time);
+    printf("Result q1 add time: %.2f\n", q1_add_time);
     printf("Expected q1 process time: %.2f\n", SIZE*(t[3]+t[2])/2.0);
-    printf("Result q1 process time: %.2f\n", type1_process_time);
+    printf("Result q1 process time: %.2f\n", q1_process_time);
     printf("Expected q2 add time: %.2f\n", SIZE*(t[5]+t[4])/2.0);
-    printf("Result q2 add time: %.2f\n", type2_add_time);
-    printf("Expected q2 process time: %.2f\n", SIZE*(t[7]+t[6])/2.0 + (adds_q2-SIZE) * (t[7]+t[6])/4.0);
-    printf("Result q2 process time: %.2f\n", type2_process_time);
+    printf("Result q2 add time: %.2f\n", q2_add_time);
+    printf("Expected q2 process time: %.2f\n", SIZE*(t[7]+t[6])/2.0 + (q2_added-SIZE) * (t[7]+t[6])/4.0);
+    printf("Result q2 process time: %.2f\n", q2_process_time);
 }
