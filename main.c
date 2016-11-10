@@ -2,6 +2,8 @@
 
 #include "stdlib.h"
 #include "service_unit.h"
+#include "defines.h"
+#include "test_queue.h"
 
 int choice_queue();
 int choice_action();
@@ -35,7 +37,7 @@ int main(void)
             service_unit(dt, LIST);
             break;
         case 3:
-            //test_stack(queue_type);
+            test_queue(queue_type);
             break;
         default:
             break;

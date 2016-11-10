@@ -197,53 +197,55 @@ void service_unit_list(float *t)
     }
     float tmp;
     printf("****************Q1***************\n");
-    printf("Expected add time: %.2f\n", SIZE*(t[1]+t[0])/2.0);
-    printf("Result add time: %.2f\n", q1_add_time);
-    printf("Expected modeling time: %.2f\n", SIZE*(t[3]+t[2])/2.0);
-    printf("Result modeling time: %.2f\n", q1_process_time);
-    printf("Idle time: %.2f\n", q1_process_time - q1_add_time);
     printf("Enqueues: %d\n", q1_inserts);
     printf("Dequeues: %d\n", q1_dequeues);
+    tmp = q1_process_time - q1_add_time;
+    if (tmp < 0) tmp = 0;
+    printf("Idle time: %.2f\n", tmp);
     printf("Input check\n");
     tmp = q1_add_time / ((t[1]+t[0])/2.0);
-    printf("Number of applications: %.2f\n", tmp);
-    printf("Error: %.2f\n", abs(q1_inserts - tmp)/tmp);
+    printf("Expected number of applications: %.2f\n", tmp);
+    printf("Result number of applications: %d\n", q1_inserts);
+    printf("Error: %.2f\n", 100.0*abs(q1_inserts - tmp)/tmp);
     printf("Output check\n");
-    tmp = q1_dequeues * ((t[3]+t[2])/2.0);
-    if (q1_wait_time > 0) tmp += q1_wait_time;
+    tmp = SIZE * ((t[3]+t[2])/2.0);
     printf("Expected modeling time: %.2f\n", tmp);
-    printf("Error: %.2f\n", abs(q1_process_time - tmp)/tmp);
+    printf("Result modeling time: %.2f\n", q1_process_time);
+    printf("Error: %.2f\n", 100.0*abs(q1_process_time - tmp)/tmp);
+
     printf("****************Q2***************\n");
-    printf("Expected add time: %.2f\n", SIZE*(t[5]+t[4])/2.0);
-    printf("Result add time: %.2f\n", q2_add_time);
-    printf("Expected modeling time: %.2f\n", SIZE*(t[7]+t[6])/2.0 + (q2_added-SIZE) * (t[7]+t[6])/4.0);
-    printf("Result modeling time: %.2f\n", q2_process_time);
-    printf("Idle time: %.2f\n", q2_process_time - q2_add_time);
-    printf("Enqueues to: %d\n", q2_added);
-    printf("Dequeues from: %d\n", q2_dequeues);
+    printf("Enqueues: %d\n", q2_added);
+    printf("Dequeues: %d\n", q2_dequeues);
+    tmp = q2_process_time - q2_add_time;
+    if (tmp < 0) tmp = 0;
+    printf("Idle time: %.2f\n", tmp);
     printf("Input check\n");
     tmp = q2_add_time / ((t[5]+t[4])/2.0);
-    printf("Number of applications: %.2f\n", tmp);
-    printf("Error: %.2f\n", abs(q1_inserts - tmp)/tmp);
+    printf("Expected number of applications: %.2f\n", tmp);
+    printf("Result number of applications: %d\n", q2_inserts);
+    printf("Error: %.2f\n", 100.0*abs(q2_inserts - tmp)/tmp);
     printf("Output check\n");
-    tmp = q2_dequeues * ((t[6]+t[7])/2.0);
-    if (q2_wait_time > 0) tmp += q2_wait_time;
+    tmp = SIZE*(t[7]+t[6])/2.0 + (q2_added-SIZE) * (t[7]+t[6])/4.0;
     printf("Expected modeling time: %.2f\n", tmp);
-    printf("Error: %.2f\n", abs(q2_process_time - tmp)/tmp);
+    printf("Result modeling time: %.2f\n", q2_process_time);
+    printf("Error: %.2f\n", 100.0*abs(q2_process_time - tmp)/tmp);
+
     printf("**************TOTAL***************\n");
-    printf("Expected total modeling time: %.2f\n", SIZE*(t[3]+t[2])/2.0 + SIZE*(t[7]+t[6])/2.0 + (q2_added-SIZE) * (t[7]+t[6])/4.0);
-    printf("Result total modeling time: %.2f\n", q1_process_time + q2_process_time);
-    printf("Total idle time: %.2f\n", q1_process_time + q2_process_time - q1_add_time - q2_add_time);
+    printf("Enqueues: %d\n", q1_inserts + q2_added);
+    printf("Dequeues: %d\n", q1_dequeues + q2_dequeues);
+    tmp = q1_process_time + q2_process_time - q1_add_time - q2_add_time;
+    if (tmp < 0) tmp = 0;
+    printf("Total idle time: %.2f\n", tmp);
     printf("Input check\n");
     tmp = (q1_add_time + q2_add_time) / ( (t[5]+t[4])/4.0 + ((t[1]+t[0])/4.0) );
-    printf("Number of applications: %.2f\n", tmp);
-    printf("Error: %.2f\n", abs(q1_inserts + q2_inserts - tmp)/tmp);
+    printf("Expected number of applications: %.2f\n", tmp);
+    printf("Result number of applications: %d\n", q1_inserts+q2_inserts);
+    printf("Error: %.2f\n", 100.0*abs(q1_inserts + q2_inserts - tmp)/tmp);
     printf("Output check\n");
-    tmp = q1_dequeues * ((t[2]+t[3])/2.0) + q2_dequeues * ((t[6]+t[7])/2.0);
-    if (q1_wait_time > 0) tmp += q1_wait_time;
-    if (q2_wait_time > 0) tmp += q2_wait_time;
+    tmp = SIZE*(t[3]+t[2])/2.0 + SIZE*(t[7]+t[6])/2.0 + (q2_added-SIZE) * (t[7]+t[6])/4.0;
     printf("Expected modeling time: %.2f\n", tmp);
-    printf("Error: %.2f\n", abs(q1_process_time + q2_process_time - tmp)/tmp);
+    printf("Result modeling time: %.2f\n", q1_process_time + q2_process_time);
+    printf("Error: %.2f\n", 100.0*abs(q1_process_time + q2_process_time - tmp)/tmp);
     printf("*********************************\n");
 }
 
@@ -257,13 +259,17 @@ void service_unit_array(float *t)
     float q1_add_time = 0;
     float q1_process_time = 0;
     int q1_inserts = 0;
+    int q1_dequeues = 0;
     int q1_processed = 0;
+    float q1_wait_time = 0;
 
     float q2_add_time = 0;
     float q2_process_time = 0;
     int q2_inserts = 0;
     int q2_added = 0;
+    int q2_dequeues = 0;
     int q2_processed = 0;
+    float q2_wait_time = 0;
 
     event_t *events[3] = {NULL};
     event_t *current_event;
@@ -322,6 +328,8 @@ void service_unit_array(float *t)
                         enqueue_a(q2, current, &code);
                     }
                     current = dequeue_a(q1, &code);
+                    q1_dequeues++;
+                    q1_wait_time += current_time - current->start_time;
                     event_t *e = create_event(current, current_time + current->process_time, PROCESS_END);
                     current_begin = current_time;
                     events[events_size] = e;
@@ -346,6 +354,8 @@ void service_unit_array(float *t)
                 if (!current)
                 {
                     current = dequeue_a(q2, &code);
+                    q2_dequeues++;
+                    q2_wait_time += current_time - current->start_time;
                     event_t *e = create_event(current, current_time + current->process_time, PROCESS_END);
                     current_begin = current_time;
                     events[events_size] = e;
@@ -358,6 +368,11 @@ void service_unit_array(float *t)
             {
                 q1_process_time += current->process_time;
                 q1_processed++;
+                if (q1_processed % 100 == 0)
+                {
+                    print_info(q1_processed, q1_inserts, q1_dequeues, (float)q1_wait_time/q1_dequeues,
+                               q2_inserts, q2_added, (float)q2_wait_time/q2_dequeues);
+                }
             }
             else
             {
@@ -372,6 +387,8 @@ void service_unit_array(float *t)
             if (!is_empty_a(q1))
             {
                 current = dequeue_a(q1, &code);
+                q1_dequeues++;
+                q1_wait_time += current_time - current->start_time;
                 event_t *e = create_event(current, current_time + current->process_time, PROCESS_END);
                 current_begin = current_time;
                 events[events_size] = e;
@@ -380,6 +397,8 @@ void service_unit_array(float *t)
             else if (!is_empty_a(q2))
             {
                 current = dequeue_a(q2, &code);
+                q2_dequeues++;
+                q2_wait_time += current_time - current->start_time;
                 event_t *e = create_event(current, current_time + current->process_time, PROCESS_END);
                 current_begin = current_time;
                 events[events_size] = e;
@@ -388,12 +407,56 @@ void service_unit_array(float *t)
             break;
         }
     }
-    printf("Expected q1 add time: %.2f\n", SIZE*(t[1]+t[0])/2.0);
-    printf("Result q1 add time: %.2f\n", q1_add_time);
-    printf("Expected q1 process time: %.2f\n", SIZE*(t[3]+t[2])/2.0);
-    printf("Result q1 process time: %.2f\n", q1_process_time);
-    printf("Expected q2 add time: %.2f\n", SIZE*(t[5]+t[4])/2.0);
-    printf("Result q2 add time: %.2f\n", q2_add_time);
-    printf("Expected q2 process time: %.2f\n", SIZE*(t[7]+t[6])/2.0 + (q2_added-SIZE) * (t[7]+t[6])/4.0);
-    printf("Result q2 process time: %.2f\n", q2_process_time);
+    float tmp;
+    printf("****************Q1***************\n");
+    printf("Enqueues: %d\n", q1_inserts);
+    printf("Dequeues: %d\n", q1_dequeues);
+    tmp = q1_process_time - q1_add_time;
+    if (tmp < 0) tmp = 0;
+    printf("Idle time: %.2f\n", tmp);
+    printf("Input check\n");
+    tmp = q1_add_time / ((t[1]+t[0])/2.0);
+    printf("Expected number of applications: %.2f\n", tmp);
+    printf("Result number of applications: %d\n", q1_inserts);
+    printf("Error: %.2f\n", 100.0*abs(q1_inserts - tmp)/tmp);
+    printf("Output check\n");
+    tmp = SIZE * ((t[3]+t[2])/2.0);
+    printf("Expected modeling time: %.2f\n", tmp);
+    printf("Result modeling time: %.2f\n", q1_process_time);
+    printf("Error: %.2f\n", 100.0*abs(q1_process_time - tmp)/tmp);
+
+    printf("****************Q2***************\n");
+    printf("Enqueues: %d\n", q2_added);
+    printf("Dequeues: %d\n", q2_dequeues);
+    tmp = q2_process_time - q2_add_time;
+    if (tmp < 0) tmp = 0;
+    printf("Idle time: %.2f\n", tmp);
+    printf("Input check\n");
+    tmp = q2_add_time / ((t[5]+t[4])/2.0);
+    printf("Expected number of applications: %.2f\n", tmp);
+    printf("Result number of applications: %d\n", q2_inserts);
+    printf("Error: %.2f\n", 100.0*abs(q2_inserts - tmp)/tmp);
+    printf("Output check\n");
+    tmp = SIZE*(t[7]+t[6])/2.0 + (q2_added-SIZE) * (t[7]+t[6])/4.0;
+    printf("Expected modeling time: %.2f\n", tmp);
+    printf("Result modeling time: %.2f\n", q2_process_time);
+    printf("Error: %.2f\n", 100.0*abs(q2_process_time - tmp)/tmp);
+
+    printf("**************TOTAL***************\n");
+    printf("Enqueues: %d\n", q1_inserts + q2_added);
+    printf("Dequeues: %d\n", q1_dequeues + q2_dequeues);
+    tmp = q1_process_time + q2_process_time - q1_add_time - q2_add_time;
+    if (tmp < 0) tmp = 0;
+    printf("Total idle time: %.2f\n", tmp);
+    printf("Input check\n");
+    tmp = (q1_add_time + q2_add_time) / ( (t[5]+t[4])/4.0 + ((t[1]+t[0])/4.0) );
+    printf("Expected number of applications: %.2f\n", tmp);
+    printf("Result number of applications: %d\n", q1_inserts+q2_inserts);
+    printf("Error: %.2f\n", 100.0*abs(q1_inserts + q2_inserts - tmp)/tmp);
+    printf("Output check\n");
+    tmp = SIZE*(t[3]+t[2])/2.0 + SIZE*(t[7]+t[6])/2.0 + (q2_added-SIZE) * (t[7]+t[6])/4.0;
+    printf("Expected modeling time: %.2f\n", tmp);
+    printf("Result modeling time: %.2f\n", q1_process_time + q2_process_time);
+    printf("Error: %.2f\n", 100.0*abs(q1_process_time + q2_process_time - tmp)/tmp);
+    printf("*********************************\n");
 }

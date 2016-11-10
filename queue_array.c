@@ -19,7 +19,7 @@ void enqueue_a(queue_a *q, application_t *a, int *code)
 {
     if (q->size == MAX_SIZE)
     {
-        *code = FULL;
+        *code = FULL_QUEUE;
         return;
     }
     q->data[q->tail] = a;
@@ -31,7 +31,7 @@ application_t *dequeue_a(queue_a *q, int *code)
 {
     if (q->size == 0)
     {
-        *code = EMPTY;
+        *code = EMPTY_QUEUE;
         return NULL;
     }
     application_t *a = q->data[q->head];
@@ -44,7 +44,7 @@ application_t *peek_a(queue_a *q, int *code)
 {
     if (q->head == q->tail)
     {
-        *code = EMPTY;
+        *code = EMPTY_QUEUE;
         return NULL;
     }
     application_t *a = q->data[q->head];
@@ -59,4 +59,22 @@ int size_a(queue_a *q)
 int is_empty_a(queue_a *q)
 {
     return q->size == 0;
+}
+
+void print_dump_queue_array(char *type, queue_a *s)
+{
+    printf("********************************\n");
+    printf("QUEUE DUMP\n");
+    printf("%s", type);
+    if (!is_empty_a(s))
+    {
+        printf("%16s\n", "DATA");
+        for (int i = 0; i < s->size; i++)
+            printf("%16.2f\n", s->data[i]->add_time);
+    }
+    else
+    {
+        printf("%16s\n", "queue is empty");
+    }
+    printf("********************************\n");
 }

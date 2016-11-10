@@ -1,6 +1,7 @@
 #include "queue_list.h"
 
 #include <malloc.h>
+#include "garbage.h"
 
 object_t *create_object(application_t *a)
 {
@@ -32,6 +33,7 @@ void enqueue_l(queue_l *q, application_t *a, int *code)
     *code = OK;
     q->size++;
     object_t *o = create_object(a);
+    delete_freed(o);
     if (q->tail)
     {
         q->tail->next = o;
@@ -45,11 +47,12 @@ application_t *dequeue_l(queue_l *q, int *code)
 {
     if (q->size == 0)
     {
-        *code = EMPTY;
+        *code = EMPTY_QUEUE;
         return NULL;
     }
     q->size--;
     application_t *a = q->head->data;
+    dump_freed(q->head);
     destroy_object(q->head);
     q->head = q->head->next;
     if (!q->head) q->tail = q->head;
@@ -60,7 +63,7 @@ application_t *peek_l(queue_l *q, int *code)
 {
     if (q->size == 0)
     {
-        *code = EMPTY;
+        *code = EMPTY_QUEUE;
         return NULL;
     }
     return q->head->data;
@@ -74,6 +77,29 @@ int size_l(queue_l *q)
 int is_empty_l(queue_l *q)
 {
     return q->size == 0;
+}
+
+void print_dump_queue_list(char *type, queue_l *s)
+{
+    printf("********************************\n");
+    printf("QUEUE DUMP\n");
+    printf("%s", type);
+    if (!is_empty_l(s))
+    {
+        printf("%16s%16s\n", "DATA", "POINTER");
+        object_t *top = s->head;
+        while (top)
+        {
+            printf("%16.3f%16p\n", top->data->add_time, (void*)top);
+            top = top->next;
+        }
+    }
+    else
+    {
+        printf("%32s\n", "queue is empty");
+    }
+    print_freed();
+    printf("********************************\n");
 }
 
 

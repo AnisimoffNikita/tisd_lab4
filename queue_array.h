@@ -2,7 +2,7 @@
 #define QUEUE_ARRAY_H
 
 #include "types.h"
-#include "queue_errors.h"
+#include "defines.h"
 
 #define MAX_SIZE 1000
 
@@ -22,5 +22,8 @@ application_t *dequeue_a(queue_a *q, int *code);
 application_t *peek_a(queue_a *q, int *code);
 int size_a(queue_a *q);
 int is_empty_a(queue_a *q);
+
+
+void print_dump_queue_array(char *type, queue_a *s);
 
 #endif // QUEUE_ARRAY_H

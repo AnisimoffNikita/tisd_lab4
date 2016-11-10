@@ -3,7 +3,7 @@
 
 
 #include "types.h"
-#include "queue_errors.h"
+#include "defines.h"
 
 struct _object_t
 {
@@ -30,5 +30,8 @@ application_t *dequeue_l(queue_l *q, int *code);
 application_t *peek_l(queue_l *q, int *code);
 int size_l(queue_l *q);
 int is_empty_l(queue_l *q);
+
+
+void print_dump_queue_list(char *type, queue_l *s);
 
 #endif // QUEUE_LIST_H
