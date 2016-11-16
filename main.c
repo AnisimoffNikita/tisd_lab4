@@ -4,14 +4,17 @@
 #include "service_unit.h"
 #include "defines.h"
 #include "test_queue.h"
+#include <stdlib.h>
+#include <time.h>
 
 int choice_queue();
 int choice_action();
 
 int main(void)
 {
+    srand(time(NULL));
     float t[8];
-    float dt[8] = {1, 5, 0, 4, 1, 3, 0, 1};
+    float dt[8] = {1, 5, 0, 4, 0, 3, 0, 1};
     int stop = 0;
     while (!stop) {
         int queue_type = choice_queue();
@@ -25,16 +28,36 @@ int main(void)
         case 1:
             printf("Input bounds of 1st type addition time (a b): ");
             scanf("%f %f", &t[0], &t[1]);
+            while (t[0] > t[1])
+            {
+                printf("Input bounds of 1st type addition time (a b): ");
+                scanf("%f %f", &t[0], &t[1]);
+            }
             printf("Input bounds of 1st type process time (a b): ");
             scanf("%f %f", &t[2], &t[3]);
+            while (t[2] > t[3])
+            {
+                printf("Input bounds of 1st type process time (a b): ");
+                scanf("%f %f", &t[2], &t[3]);
+            }
             printf("Input bounds of 2st type addition time (a b): ");
             scanf("%f %f", &t[4], &t[5]);
+            while (t[4] > t[5])
+            {
+                printf("Input bounds of 2st type addition time (a b): ");
+                scanf("%f %f", &t[4], &t[5]);
+            }
             printf("Input bounds of 2st type process time (a b): ");
             scanf("%f %f", &t[6], &t[7]);
+            while (t[6] > t[7])
+            {
+                printf("Input bounds of 2st type process time (a b): ");
+                scanf("%f %f", &t[6], &t[7]);
+            }
             service_unit(t, queue_type);
             break;
         case 2:
-            service_unit(dt, LIST);
+            service_unit(dt, queue_type);
             break;
         case 3:
             test_queue(queue_type);

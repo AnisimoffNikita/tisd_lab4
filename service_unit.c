@@ -3,6 +3,7 @@
 #include "queue_array.h"
 #include "queue_list.h"
 
+#include <time.h>
 #include <math.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -26,15 +27,16 @@ enum
     PROCESS_END,
 };
 
-void print_info(int i, int q1_e, int q1_d, float q1_a, int q2_e, int q2_d, float q2_a)
+void print_info(int q1_p, int q1_e, float q1_a, int q1_l, int q2_p, int q2_e, float q2_a, int q2_l)
 {
     printf("*********************************\n");
-    printf("q1: processed: %d\n", i);
-    printf("q1: enqueues: %d\n", q1_e);
-    printf("q1: dequeues: %d\n", q1_d);
+    printf("q1: processed: %d\n", q1_p);
+    printf("q1: applications entered in queue: %d\n", q1_e);
+    printf("q1: len: %d\n", q1_l);
     printf("q1: average time in queue: %.2f\n", q1_a);
-    printf("q2: enqueues: %d\n", q2_e);
-    printf("q2: dequeues: %d\n", q2_d);
+    printf("q2: processed: %d\n", q2_p);
+    printf("q2: applications entered in queue: %d\n", q2_e);
+    printf("q2: len: %d\n", q2_l);
     printf("q2: average time in queue: %.2f\n", q2_a);
 }
 
@@ -46,15 +48,15 @@ void service_unit_list(float *t)
 
     float q1_add_time = 0;
     float q1_process_time = 0;
-    int q1_inserts = 0;
+    int q1_applications = 0;
     int q1_dequeues = 0;
     int q1_processed = 0;
     float q1_wait_time = 0;
 
     float q2_add_time = 0;
     float q2_process_time = 0;
-    int q2_inserts = 0;
-    int q2_added = 0;
+    int q2_applications = 0;
+    int q2_enqueues = 0;
     int q2_dequeues = 0;
     int q2_processed = 0;
     float q2_wait_time = 0;
@@ -74,7 +76,9 @@ void service_unit_list(float *t)
     events[events_size] = create_event(a, a->add_time, ENQUEUE);
     events_size++;
 
-    while(q1_processed < SIZE || q2_processed < SIZE)
+    clock_t b = clock();
+
+    while(q1_processed < SIZE)
     {
         sort(events, events_size);
         current_event = events[0];
@@ -84,13 +88,13 @@ void service_unit_list(float *t)
         case ENQUEUE:
             if (current_event->a->type == TYPE_1)
             {
-                q1_inserts++;
+                q1_applications++;
                 q1_add_time += current_event->a->add_time;
                 enqueue_l(q1, current_event->a, &code);
                 destroy_event(current_event);
                 shift(events, events_size);
                 events_size--;
-                if (q1_inserts < SIZE)
+                if (q1_applications < SIZE)
                 {
                     a = create_application(TYPE_1, t[0], t[1], t[2], t[3], current_time);
                     events[events_size] = create_event(a, current_time + a->add_time, ENQUEUE);
@@ -112,7 +116,7 @@ void service_unit_list(float *t)
                             events[1] = events[2];
                         }
                         events_size--;
-                        q2_added++;
+                        q2_enqueues++;
                         enqueue_l(q2, current, &code);
                     }
                     current = dequeue_l(q1, &code);
@@ -126,19 +130,16 @@ void service_unit_list(float *t)
             }
             else
             {
-                q2_inserts++;
-                q2_added++;
+                q2_applications++;
+                q2_enqueues++;
                 q2_add_time += current_event->a->add_time;
                 enqueue_l(q2, current_event->a, &code);
                 destroy_event(current_event);
                 shift(events, events_size);
                 events_size--;
-                if (q2_inserts < SIZE)
-                {
-                    a = create_application(TYPE_2, t[4], t[5], t[6], t[7], current_time);
-                    events[events_size] = create_event(a, current_time + a->add_time, ENQUEUE);
-                    events_size++;
-                }
+                a = create_application(TYPE_2, t[4], t[5], t[6], t[7], current_time);
+                events[events_size] = create_event(a, current_time + a->add_time, ENQUEUE);
+                events_size++;
                 if (!current)
                 {
                     current = dequeue_l(q2, &code);
@@ -158,8 +159,8 @@ void service_unit_list(float *t)
                 q1_processed++;
                 if (q1_processed % 100 == 0)
                 {
-                    print_info(q1_processed, q1_inserts, q1_dequeues, (float)q1_wait_time/q1_dequeues,
-                               q2_inserts, q2_added, (float)q2_wait_time/q2_dequeues);
+                    print_info(q1_processed, q1_applications, q1->size, (float)q1_wait_time/q1_dequeues,
+                               q2_processed, q2_applications, (float)q2_wait_time/q2_dequeues, q2->size);
                 }
             }
             else
@@ -195,58 +196,61 @@ void service_unit_list(float *t)
             break;
         }
     }
+
+    clock_t r_time = clock() - b;
+
     float tmp;
     printf("****************Q1***************\n");
-    printf("Enqueues: %d\n", q1_inserts);
-    printf("Dequeues: %d\n", q1_dequeues);
-    tmp = q1_process_time - q1_add_time;
+    printf("Applications: %d\n", q1_applications);
+    printf("Processed: %d\n", q1_processed);
+    tmp = -q1_process_time + q1_add_time;
     if (tmp < 0) tmp = 0;
-    printf("Idle time: %.2f\n", tmp);
     printf("Input check\n");
     tmp = q1_add_time / ((t[1]+t[0])/2.0);
     printf("Expected number of applications: %.2f\n", tmp);
-    printf("Result number of applications: %d\n", q1_inserts);
-    printf("Error: %.2f\n", 100.0*abs(q1_inserts - tmp)/tmp);
+    printf("Result number of applications: %d\n", q1_applications);
+    printf("Error: %.2f%%\n", 100.0*abs(q1_applications - tmp)/tmp);
     printf("Output check\n");
     tmp = SIZE * ((t[3]+t[2])/2.0);
-    printf("Expected modeling time: %.2f\n", tmp);
-    printf("Result modeling time: %.2f\n", q1_process_time);
-    printf("Error: %.2f\n", 100.0*abs(q1_process_time - tmp)/tmp);
+    printf("Expected process time: %.2f\n", tmp);
+    printf("Result process time: %.2f\n", q1_process_time);
+    printf("Error: %.2f%%\n", 100.0*abs(q1_process_time - tmp)/tmp);
 
     printf("****************Q2***************\n");
-    printf("Enqueues: %d\n", q2_added);
-    printf("Dequeues: %d\n", q2_dequeues);
-    tmp = q2_process_time - q2_add_time;
+    printf("Applications: %d\n", q2_applications);
+    printf("Removed from OA: %d\n", q2_enqueues - q2_applications);
+    printf("Processed: %d\n", q2_processed);
+    tmp = -q2_process_time + q2_add_time;
     if (tmp < 0) tmp = 0;
-    printf("Idle time: %.2f\n", tmp);
     printf("Input check\n");
     tmp = q2_add_time / ((t[5]+t[4])/2.0);
     printf("Expected number of applications: %.2f\n", tmp);
-    printf("Result number of applications: %d\n", q2_inserts);
-    printf("Error: %.2f\n", 100.0*abs(q2_inserts - tmp)/tmp);
+    printf("Result number of applications: %d\n", q2_applications);
+    printf("Error: %.2f%%\n", 100.0*abs(q2_applications - tmp)/tmp);
     printf("Output check\n");
-    tmp = SIZE*(t[7]+t[6])/2.0 + (q2_added-SIZE) * (t[7]+t[6])/4.0;
-    printf("Expected modeling time: %.2f\n", tmp);
-    printf("Result modeling time: %.2f\n", q2_process_time);
-    printf("Error: %.2f\n", 100.0*abs(q2_process_time - tmp)/tmp);
+    tmp = q2_processed*(t[7]+t[6])/2.0 + (q2_applications - q2_processed) * (t[7]+t[6])/4.0;
+    printf("Expected process time: %.2f\n", tmp);
+    printf("Result process time: %.2f\n", q2_process_time);
+    printf("Error: %.2f%%\n", 100.0*abs(q2_process_time - tmp)/tmp);
 
     printf("**************TOTAL***************\n");
-    printf("Enqueues: %d\n", q1_inserts + q2_added);
-    printf("Dequeues: %d\n", q1_dequeues + q2_dequeues);
-    tmp = q1_process_time + q2_process_time - q1_add_time - q2_add_time;
-    if (tmp < 0) tmp = 0;
-    printf("Total idle time: %.2f\n", tmp);
+    printf("Total modeling time: %.2f\n", q1_add_time);
     printf("Input check\n");
-    tmp = (q1_add_time + q2_add_time) / ( (t[5]+t[4])/4.0 + ((t[1]+t[0])/4.0) );
+    tmp = q1_add_time / ((t[1]+t[0])/2.0) + q2_add_time / ((t[5]+t[4])/2.0);
     printf("Expected number of applications: %.2f\n", tmp);
-    printf("Result number of applications: %d\n", q1_inserts+q2_inserts);
-    printf("Error: %.2f\n", 100.0*abs(q1_inserts + q2_inserts - tmp)/tmp);
+    printf("Result number of applications: %d\n", q1_applications+q2_applications);
+    printf("Error: %.2f%%\n", 100.0*abs(q1_applications + q2_applications - tmp)/tmp);
     printf("Output check\n");
-    tmp = SIZE*(t[3]+t[2])/2.0 + SIZE*(t[7]+t[6])/2.0 + (q2_added-SIZE) * (t[7]+t[6])/4.0;
-    printf("Expected modeling time: %.2f\n", tmp);
-    printf("Result modeling time: %.2f\n", q1_process_time + q2_process_time);
-    printf("Error: %.2f\n", 100.0*abs(q1_process_time + q2_process_time - tmp)/tmp);
+    tmp = SIZE * ((t[3]+t[2])/2.0) + q2_processed*(t[7]+t[6])/2.0 + (q2_applications - q2_processed) * (t[7]+t[6])/4.0;
+    printf("Expected process time: %.2f\n", tmp);
+    printf("Result process time: %.2f\n", q1_process_time + q2_process_time);
+    printf("Error: %.2f%%\n", 100.0*abs(q1_process_time + q2_process_time - tmp)/tmp);
     printf("*********************************\n");
+
+    printf("Real working time: %.5f\n", (double)(r_time)/CLOCKS_PER_SEC);
+
+    destroy_queue_l(q1);
+    destroy_queue_l(q2);
 }
 
 
@@ -258,15 +262,15 @@ void service_unit_array(float *t)
 
     float q1_add_time = 0;
     float q1_process_time = 0;
-    int q1_inserts = 0;
+    int q1_applications = 0;
     int q1_dequeues = 0;
     int q1_processed = 0;
     float q1_wait_time = 0;
 
     float q2_add_time = 0;
     float q2_process_time = 0;
-    int q2_inserts = 0;
-    int q2_added = 0;
+    int q2_applications = 0;
+    int q2_enqueues = 0;
     int q2_dequeues = 0;
     int q2_processed = 0;
     float q2_wait_time = 0;
@@ -286,7 +290,9 @@ void service_unit_array(float *t)
     events[events_size] = create_event(a, a->add_time, ENQUEUE);
     events_size++;
 
-    while(q1_processed < SIZE || q2_processed < SIZE)
+    clock_t b = clock();
+
+    while(q1_processed < SIZE)
     {
         sort(events, events_size);
         current_event = events[0];
@@ -296,13 +302,13 @@ void service_unit_array(float *t)
         case ENQUEUE:
             if (current_event->a->type == TYPE_1)
             {
-                q1_inserts++;
+                q1_applications++;
                 q1_add_time += current_event->a->add_time;
                 enqueue_a(q1, current_event->a, &code);
                 destroy_event(current_event);
                 shift(events, events_size);
                 events_size--;
-                if (q1_inserts < SIZE)
+                if (q1_applications < SIZE)
                 {
                     a = create_application(TYPE_1, t[0], t[1], t[2], t[3], current_time);
                     events[events_size] = create_event(a, current_time + a->add_time, ENQUEUE);
@@ -324,7 +330,7 @@ void service_unit_array(float *t)
                             events[1] = events[2];
                         }
                         events_size--;
-                        q2_added++;
+                        q2_enqueues++;
                         enqueue_a(q2, current, &code);
                     }
                     current = dequeue_a(q1, &code);
@@ -338,19 +344,16 @@ void service_unit_array(float *t)
             }
             else
             {
-                q2_inserts++;
-                q2_added++;
+                q2_applications++;
+                q2_enqueues++;
                 q2_add_time += current_event->a->add_time;
                 enqueue_a(q2, current_event->a, &code);
                 destroy_event(current_event);
                 shift(events, events_size);
                 events_size--;
-                if (q2_inserts < SIZE)
-                {
-                    a = create_application(TYPE_2, t[4], t[5], t[6], t[7], current_time);
-                    events[events_size] = create_event(a, current_time + a->add_time, ENQUEUE);
-                    events_size++;
-                }
+                a = create_application(TYPE_2, t[4], t[5], t[6], t[7], current_time);
+                events[events_size] = create_event(a, current_time + a->add_time, ENQUEUE);
+                events_size++;
                 if (!current)
                 {
                     current = dequeue_a(q2, &code);
@@ -370,8 +373,8 @@ void service_unit_array(float *t)
                 q1_processed++;
                 if (q1_processed % 100 == 0)
                 {
-                    print_info(q1_processed, q1_inserts, q1_dequeues, (float)q1_wait_time/q1_dequeues,
-                               q2_inserts, q2_added, (float)q2_wait_time/q2_dequeues);
+                    print_info(q1_processed, q1_applications, q1->size, (float)q1_wait_time/q1_dequeues,
+                               q2_processed, q2_applications, (float)q2_wait_time/q2_dequeues, q2->size);
                 }
             }
             else
@@ -407,56 +410,59 @@ void service_unit_array(float *t)
             break;
         }
     }
+
+    clock_t r_time = clock() - b;
+
     float tmp;
     printf("****************Q1***************\n");
-    printf("Enqueues: %d\n", q1_inserts);
-    printf("Dequeues: %d\n", q1_dequeues);
-    tmp = q1_process_time - q1_add_time;
+    printf("Applications: %d\n", q1_applications);
+    printf("Processed: %d\n", q1_processed);
+    tmp = -q1_process_time + q1_add_time;
     if (tmp < 0) tmp = 0;
-    printf("Idle time: %.2f\n", tmp);
     printf("Input check\n");
     tmp = q1_add_time / ((t[1]+t[0])/2.0);
     printf("Expected number of applications: %.2f\n", tmp);
-    printf("Result number of applications: %d\n", q1_inserts);
-    printf("Error: %.2f\n", 100.0*abs(q1_inserts - tmp)/tmp);
+    printf("Result number of applications: %d\n", q1_applications);
+    printf("Error: %.2f%%\n", 100.0*abs(q1_applications - tmp)/tmp);
     printf("Output check\n");
     tmp = SIZE * ((t[3]+t[2])/2.0);
-    printf("Expected modeling time: %.2f\n", tmp);
-    printf("Result modeling time: %.2f\n", q1_process_time);
-    printf("Error: %.2f\n", 100.0*abs(q1_process_time - tmp)/tmp);
+    printf("Expected process time: %.2f\n", tmp);
+    printf("Result process time: %.2f\n", q1_process_time);
+    printf("Error: %.2f%%\n", 100.0*abs(q1_process_time - tmp)/tmp);
 
     printf("****************Q2***************\n");
-    printf("Enqueues: %d\n", q2_added);
-    printf("Dequeues: %d\n", q2_dequeues);
-    tmp = q2_process_time - q2_add_time;
+    printf("Applications: %d\n", q2_applications);
+    printf("Removed from OA: %d\n", q2_enqueues - q2_applications);
+    printf("Processed: %d\n", q2_processed);
+    tmp = -q2_process_time + q2_add_time;
     if (tmp < 0) tmp = 0;
-    printf("Idle time: %.2f\n", tmp);
     printf("Input check\n");
     tmp = q2_add_time / ((t[5]+t[4])/2.0);
     printf("Expected number of applications: %.2f\n", tmp);
-    printf("Result number of applications: %d\n", q2_inserts);
-    printf("Error: %.2f\n", 100.0*abs(q2_inserts - tmp)/tmp);
+    printf("Result number of applications: %d\n", q2_applications);
+    printf("Error: %.2f%%\n", 100.0*abs(q2_applications - tmp)/tmp);
     printf("Output check\n");
-    tmp = SIZE*(t[7]+t[6])/2.0 + (q2_added-SIZE) * (t[7]+t[6])/4.0;
-    printf("Expected modeling time: %.2f\n", tmp);
-    printf("Result modeling time: %.2f\n", q2_process_time);
-    printf("Error: %.2f\n", 100.0*abs(q2_process_time - tmp)/tmp);
+    tmp = q2_processed*(t[7]+t[6])/2.0 + (q2_applications - q2_processed) * (t[7]+t[6])/4.0;
+    printf("Expected process time: %.2f\n", tmp);
+    printf("Result process time: %.2f\n", q2_process_time);
+    printf("Error: %.2f%%\n", 100.0*abs(q2_process_time - tmp)/tmp);
 
     printf("**************TOTAL***************\n");
-    printf("Enqueues: %d\n", q1_inserts + q2_added);
-    printf("Dequeues: %d\n", q1_dequeues + q2_dequeues);
-    tmp = q1_process_time + q2_process_time - q1_add_time - q2_add_time;
-    if (tmp < 0) tmp = 0;
-    printf("Total idle time: %.2f\n", tmp);
+    printf("Total modeling time: %.2f\n", q1_add_time);
     printf("Input check\n");
-    tmp = (q1_add_time + q2_add_time) / ( (t[5]+t[4])/4.0 + ((t[1]+t[0])/4.0) );
+    tmp = q1_add_time / ((t[1]+t[0])/2.0) + q2_add_time / ((t[5]+t[4])/2.0);
     printf("Expected number of applications: %.2f\n", tmp);
-    printf("Result number of applications: %d\n", q1_inserts+q2_inserts);
-    printf("Error: %.2f\n", 100.0*abs(q1_inserts + q2_inserts - tmp)/tmp);
+    printf("Result number of applications: %d\n", q1_applications+q2_applications);
+    printf("Error: %.2f%%\n", 100.0*abs(q1_applications + q2_applications - tmp)/tmp);
     printf("Output check\n");
-    tmp = SIZE*(t[3]+t[2])/2.0 + SIZE*(t[7]+t[6])/2.0 + (q2_added-SIZE) * (t[7]+t[6])/4.0;
-    printf("Expected modeling time: %.2f\n", tmp);
-    printf("Result modeling time: %.2f\n", q1_process_time + q2_process_time);
-    printf("Error: %.2f\n", 100.0*abs(q1_process_time + q2_process_time - tmp)/tmp);
+    tmp = SIZE * ((t[3]+t[2])/2.0) + q2_processed*(t[7]+t[6])/2.0 + (q2_applications - q2_processed) * (t[7]+t[6])/4.0;
+    printf("Expected process time: %.2f\n", tmp);
+    printf("Result process time: %.2f\n", q1_process_time + q2_process_time);
+    printf("Error: %.2f%%\n", 100.0*abs(q1_process_time + q2_process_time - tmp)/tmp);
     printf("*********************************\n");
+
+    printf("Real working time: %.5f\n", (double)(r_time)/CLOCKS_PER_SEC);
+
+    destroy_queue_a(q1);
+    destroy_queue_a(q2);
 }

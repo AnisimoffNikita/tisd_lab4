@@ -20,6 +20,7 @@ queue_l *create_queue_l()
 {
     queue_l *ptr = malloc(sizeof(queue_l));
     ptr->head = ptr->tail = NULL;
+    ptr->size = 0;
     return ptr;
 }
 
